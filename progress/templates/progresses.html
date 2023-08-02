@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"/></head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,600,1,0" />
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-6">
+                <h1 class="text-center">Progress programs</h1>
+    
+                {% for prog in progresses %}
+                    <p><span class="lead">Target Value: </span>{{prog.target_value}}</p>
+                    <p id="bar-status-{{prog.id}}"><span class="lead">Status: </span>{{prog.get_status_display}}</p>
+                    <div class="progress mb-5 prog-ids" prog-id="{{prog.id}}">
+                        <div class="progress-bar" id="bar-width-{{prog.id}}" role="progressbar" aria-label="Basic example" style="width: {{prog.current_percentage}}%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div id="status-id-{{prog.id}}">
+                        {% if prog.status == 1 %}
+                            <a href="#" onclick="pauseProgress(`{{prog.id}}`)">
+                                <span class="material-symbols-outlined">pause</span>
+                            </a>
+                        {% elif prog.status == 2 %}
+                            <a href="#" onclick="continueProgress(`{{prog.id}}`)">
+                                <span class="material-symbols-outlined">play_arrow</span>
+                            </a>
+                        {% elif prog.status == 3 %}
+                            <a href="#" onclick="restartProgress(`{{prog.id}}`)">
+                                <span class="material-symbols-outlined">refresh</span>
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                    <script>
+                        function logJSONData(id, status) {
+                            const response = fetch(`http://127.0.0.1:8000/send/message/${id}/${status}/`);
+                            const jsonData = response.then(r => {
+                                console.log(r.json());
+                            });
+                        }
+
+                        function setWidth(barId, percentage) {
+                            let barWidth = document.getElementById(`bar-width-${barId}`)
+                            barWidth.style.width = `${percentage}%`
+                        }
+
+                        function setStatus(barId, status) {
+                            let barStatus = document.getElementById(`bar-status-${barId}`)
+                            barStatus.innerHTML = `<span class="lead">Status: </span>${status}`
+                        }
+
+                        function pauseProgress(barId) {
+                            let bar = document.getElementById(`bar-width-${barId}`)
+                            let barWidth = bar.style.width.split('%')[0]
+                            return window.location.replace(window.location.origin + `/pause/progress/task/${barId}/${barWidth}/`)
+                        }
+
+                        function continueProgress(barId) {
+                            return window.location.replace(window.location.origin + `/continue/progress/task/${barId}/`)
+                        }
+                        
+                        function restartProgress(barId) {
+                            return window.location.replace(window.location.origin + `/restart/progress/task/${barId}/`)
+                        }
+
+                        
+
+                        function setWebsocket() {
+                            let socket = new WebSocket(`ws://127.0.0.1:8000/ws/tracking/bg/task/{{prog.id}}/`)
+                            socket.onopen = (e) => {
+                                // console.log(e);
+                            }
+
+                            socket.onmessage = (e) => {
+                                let data = JSON.parse(e.data)
+                                setWidth(data.new_message.progress_id, data.new_message.percentage)
+                                if (data.new_message.percentage == 100) {
+                                    setStatus(data.new_message.progress_id, data.new_message.status)
+                                    document.querySelector(`#status-id-${data.new_message.progress_id}`).innerHTML = `
+                                    <a href="#" onclick="restartProgress(${data.new_message.progress_id})">
+                                        <span class="material-symbols-outlined">refresh</span>
+                                    </a>
+                                    `
+                                }
+                            }
+
+                            socket.onclose = (e) => {
+                            }
+
+                            function sendMessage() {
+                                socket.send(JSON.stringify({'d': 'data', 'id': `{{prog.id}}`}))
+                            }
+
+                        }
+                        setWebsocket()
+                    </script>
+                    <hr>
+                    <br>
+                {% endfor %}
+            </div>
+    
+            <div class="col-6">
+                <form method="post">{% csrf_token %}
+                    {{form}}
+                    <button type="submit" class="btn btn-primary btn-sm">Add Task</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        // let progsIds = document.querySelectorAll('.prog-ids')
+        // progsIds.map(val => {
+        //     console.log(val);
+        // })
+        // let socket = new WebSocket('ws://127.0.0.1:8000/ws/tracking/bg/task/')
+        // socket.onopen = (e) => {
+        //     console.log(e);
+        // }
+        // socket.onmessage = (e) => {
+        //     let data = JSON.parse(e.data)
+        //     console.log(data);
+        // }
+    </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.min.js"></script>
+</body>
+</html>
